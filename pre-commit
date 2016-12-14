@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Delegating script to allow multiple pre-commit hooks in a git repository.
+
+Usage:
+
+Save this file to '.git/hooks/pre-commit' in your git repository. This
+hook will then execute, in alphabetic order, all executables found
+under the .git/hooks/pre-commit.d directory.
+"""
+
+import os
+import subprocess
+
+hook_type = 'pre-commit'
+
+
+def main():
+    root = os.path.normpath(os.path.abspath(os.path.dirname(__file__)))
+    hooks_dir = os.path.join(root, '{}.d'.format(hook_type))
+
+    if not os.path.isdir(hooks_dir):
+        print 'No such directory: {}'.format(hooks_dir)
+        exit(0)
+
+    files = [os.path.join(hooks_dir, f) for f in os.listdir(hooks_dir)]
+    hooks = sorted(
+        [f for f in files if os.path.isfile(f) and os.access(f, os.X_OK)]
+    )
+
+    if not hooks:
+        print 'No hooks found in {}'.format(hooks_dir)
+        exit(0)
+
+    for hook in hooks:
+        print 'Running hook {}...'.format(hook.split('/')[-1])
+        exit_code = subprocess.call(hook)
+
+        if exit_code != 0:
+            exit(exit_code)
+
+
+if __name__ == '__main__':
+    main()

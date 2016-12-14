@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+"""
+Validate commit message.
+"""
+import os
+import re
+import sys
+
+MAX_LEN = 100
+
+# fixup! and squash! are part of Git, commits tagged with them are
+# not intended to be merged, cf. https://git-scm.com/docs/git-commit
+# NORMAL_COMMIT_PATTERN = re.compile(
+#     r'^((fixup! |squash! )?(\w+)(?:\(([^\)\s]+)\))?: (.+))(?:\n|$)',
+#     re.MULTILINE
+# )
+NORMAL_COMMIT_PATTERN = re.compile(
+    r'^((fixup! |squash! )?(\w+)\(([^\)\s]+)\): (.+))(\n([\s\w]+))?$',
+    re.MULTILINE
+)
+MERGE_COMMIT_PATTERN = re.compile(
+    r'^Merge\s'
+)
+
+COMMIT_TYPES = (
+    'feat', 'fix', 'docs', 'style', 'refactor', 'perf',
+    'test', 'build', 'ci', 'chore', 'revert'
+)
+
+root = os.getcwd()
+
+
+def get_msg():
+    msg_file = os.path.join(os.getcwd(), '.git/COMMIT_EDITMSG')
+
+    if not os.path.isfile(msg_file):
+        return None
+
+    msg = None
+
+    with open(msg_file, 'r') as f:
+        msg = f.read()
+
+    return msg
+
+
+def validate_msg(msg):
+    if not msg:
+        print 'Aborting commit due to empty commit message.'
+        return False
+
+    if MERGE_COMMIT_PATTERN.match(msg):
+        print 'Merge commit detected.'
+        return True
+
+    match = NORMAL_COMMIT_PATTERN.match(msg)
+    if not match:
+        print 'Aborting commit due to invalid message format.'
+        return False
+
+    first_line = match.group(1)
+    # squashing = (match.group(2) is None)
+    commit_type = match.group(3)
+    # scope = match.group(4)
+    # header = match.group(5)
+    subject = match.group(6)
+
+    if len(first_line) > MAX_LEN:
+        print 'Aborting commit due to header exceeding max length.'
+        return False
+
+    if commit_type not in COMMIT_TYPES:
+        print 'Aborting commit due to invalid commit type.'
+        return False
+
+    if subject is not None:
+        lines = subject.split('\n')
+        if len(max(lines, key=len)) > MAX_LEN:
+            print 'Aborting commit due to subject exceeding max length.'
+            return False
+
+    return True
+
+
+def main():
+    msg = get_msg()
+    if not validate_msg(msg):
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
